@@ -51,6 +51,7 @@ class KhiproIME : InputMethodService() {
         return keyboardView
     }
 
+    @android.annotation.SuppressLint("ClickableViewAccessibility")
     private fun setupKeyListeners(viewGroup: ViewGroup) {
         for (i in 0 until viewGroup.childCount) {
             val child = viewGroup.getChildAt(i)
@@ -59,28 +60,58 @@ class KhiproIME : InputMethodService() {
             } else if (child is Button) {
                 if (child.tag == "key") {
                     originalKeys[child] = child.text.toString().lowercase()
-                    child.setOnClickListener {
-                        val textToCommit = child.text.toString()
-                        if (isBengali && !isSymbols) {
-                            bengaliEngine.processKeystroke(textToCommit, currentInputConnection)
-                        } else {
-                            currentInputConnection?.commitText(textToCommit, 1)
+                    child.setOnTouchListener { v, event ->
+                        if (event.action == MotionEvent.ACTION_DOWN) {
+                            val textToCommit = child.text.toString()
+                            if (isBengali && !isSymbols) {
+                                bengaliEngine.processKeystroke(textToCommit, currentInputConnection)
+                            } else {
+                                currentInputConnection?.commitText(textToCommit, 1)
+                            }
+                            v.performClick()
                         }
+                        true
                     }
                 } else {
                     when (child.id) {
                         R.id.btn_delete -> setupBackspace(child)
-                        R.id.btn_space -> child.setOnClickListener {
-                            if (isBengali) bengaliEngine.resetBuffer()
-                            currentInputConnection?.commitText(" ", 1)
+                        R.id.btn_space -> child.setOnTouchListener { v, event ->
+                            if (event.action == MotionEvent.ACTION_DOWN) {
+                                if (isBengali) bengaliEngine.resetBuffer()
+                                currentInputConnection?.commitText(" ", 1)
+                                v.performClick()
+                            }
+                            true
                         }
-                        R.id.btn_enter -> child.setOnClickListener { triggerKeyEvent(KeyEvent.KEYCODE_ENTER) }
-                        R.id.btn_shift -> child.setOnClickListener { 
-                            isSymbols = false
-                            toggleCapsLock() 
+                        R.id.btn_enter -> child.setOnTouchListener { v, event ->
+                            if (event.action == MotionEvent.ACTION_DOWN) {
+                                triggerKeyEvent(KeyEvent.KEYCODE_ENTER)
+                                v.performClick()
+                            }
+                            true
                         }
-                        R.id.btn_lang -> child.setOnClickListener { toggleLanguage(child) }
-                        R.id.btn_sym -> child.setOnClickListener { toggleSymbols(child) }
+                        R.id.btn_shift -> child.setOnTouchListener { v, event ->
+                            if (event.action == MotionEvent.ACTION_DOWN) {
+                                isSymbols = false
+                                toggleCapsLock()
+                                v.performClick()
+                            }
+                            true
+                        }
+                        R.id.btn_lang -> child.setOnTouchListener { v, event ->
+                            if (event.action == MotionEvent.ACTION_DOWN) {
+                                toggleLanguage(child)
+                                v.performClick()
+                            }
+                            true
+                        }
+                        R.id.btn_sym -> child.setOnTouchListener { v, event ->
+                            if (event.action == MotionEvent.ACTION_DOWN) {
+                                toggleSymbols(child)
+                                v.performClick()
+                            }
+                            true
+                        }
                     }
                 }
             }
