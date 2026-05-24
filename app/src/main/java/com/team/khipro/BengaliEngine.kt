@@ -6,14 +6,25 @@ class BengaliEngine {
 
     private var activeRomanBuffer = ""
     private var lastBengaliLength = 0
+    private var lastBengaliText = ""
 
     private val stateInit = "init"
     private val shorState = "shor-state"
     private val rephState = "reph-state"
     private val byanjonState = "byanjon-state"
 
+    private fun checkCursorState(ic: InputConnection?) {
+        if (ic == null || lastBengaliLength == 0) return
+        val textBeforeCursor = ic.getTextBeforeCursor(lastBengaliLength, 0)
+        if (textBeforeCursor == null || textBeforeCursor.toString() != lastBengaliText) {
+            resetBuffer()
+        }
+    }
+
     fun processKeystroke(char: String, ic: InputConnection?) {
         if (ic == null) return
+
+        checkCursorState(ic)
 
         activeRomanBuffer += char
         val newBengali = convertBufferToBengali(activeRomanBuffer)
@@ -23,11 +34,14 @@ class BengaliEngine {
         }
         ic.commitText(newBengali, 1)
         lastBengaliLength = newBengali.length
+        lastBengaliText = newBengali
     }
 
     fun handleBackspace(ic: InputConnection?) {
         if (ic == null) return
         
+        checkCursorState(ic)
+
         if (activeRomanBuffer.isNotEmpty()) {
             activeRomanBuffer = activeRomanBuffer.substring(0, activeRomanBuffer.length - 1)
             val newBengali = convertBufferToBengali(activeRomanBuffer)
@@ -40,6 +54,7 @@ class BengaliEngine {
                 ic.commitText(newBengali, 1)
             }
             lastBengaliLength = newBengali.length
+            lastBengaliText = newBengali
         } else {
             ic.deleteSurroundingText(1, 0)
         }
@@ -48,6 +63,7 @@ class BengaliEngine {
     fun resetBuffer() {
         activeRomanBuffer = ""
         lastBengaliLength = 0
+        lastBengaliText = ""
     }
 
     private fun convertBufferToBengali(text: String): String {
