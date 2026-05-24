@@ -26,7 +26,7 @@ class BengaliEngine {
 
         checkCursorState(ic)
 
-        activeRomanBuffer += char
+        activeRomanBuffer += char.lowercase()
         val newBengali = convertBufferToBengali(activeRomanBuffer)
 
         if (lastBengaliLength > 0) {

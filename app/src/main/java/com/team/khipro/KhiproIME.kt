@@ -12,7 +12,8 @@ import android.widget.Toast
 
 class KhiproIME : InputMethodService() {
 
-    private var isCaps = false
+    private var capsState = 0 // 0: lowercase, 1: shifted, 2: caps lock
+    private var lastShiftClickTime: Long = 0
     private var isBengali = false
     private var isSymbols = false
     private lateinit var keyboardView: View
@@ -27,7 +28,7 @@ class KhiproIME : InputMethodService() {
         "a" to "@", "s" to "#", "d" to "$", "f" to "%", "g" to "&",
         "h" to "-", "j" to "+", "k" to "(", "l" to ")",
         "z" to "*", "x" to "\"", "c" to "'", "v" to ":", "b" to ";",
-        "n" to "!", "m" to "?"
+        "n" to "!", "m" to "?",
     )
 
     // ব্যাকস্পেস রিপিট লজিক
@@ -45,6 +46,7 @@ class KhiproIME : InputMethodService() {
 
     @android.annotation.SuppressLint("InflateParams")
     override fun onCreateInputView(): View {
+        originalKeys.clear()
         keyboardView = layoutInflater.inflate(R.layout.keyboard_layout, null)
         setupKeyListeners(keyboardView as ViewGroup)
         updateKeyLabels(keyboardView as ViewGroup)
@@ -67,6 +69,10 @@ class KhiproIME : InputMethodService() {
                                 bengaliEngine.processKeystroke(textToCommit, currentInputConnection)
                             } else {
                                 currentInputConnection?.commitText(textToCommit, 1)
+                                if (capsState == 1) {
+                                    capsState = 0
+                                    updateKeyLabels(keyboardView as ViewGroup)
+                                }
                             }
                             v.performClick()
                         }
@@ -92,8 +98,12 @@ class KhiproIME : InputMethodService() {
                         }
                         R.id.btn_shift -> child.setOnTouchListener { v, event ->
                             if (event.action == MotionEvent.ACTION_DOWN) {
-                                isSymbols = false
-                                toggleCapsLock()
+                                if (isBengali && !isSymbols) {
+                                    bengaliEngine.processKeystroke("/", currentInputConnection)
+                                } else {
+                                    isSymbols = false
+                                    handleShiftClick()
+                                }
                                 v.performClick()
                             }
                             true
@@ -141,8 +151,14 @@ class KhiproIME : InputMethodService() {
         }
     }
 
-    private fun toggleCapsLock() {
-        isCaps = !isCaps
+    private fun handleShiftClick() {
+        val currentTime = System.currentTimeMillis()
+        capsState = if (currentTime - lastShiftClickTime < 300) {
+            2 // Caps Lock
+        } else {
+            if (capsState == 0) 1 else 0
+        }
+        lastShiftClickTime = currentTime
         updateKeyLabels(keyboardView as ViewGroup)
     }
 
@@ -154,7 +170,9 @@ class KhiproIME : InputMethodService() {
 
     private fun toggleLanguage(langButton: Button) {
         isBengali = !isBengali
+        if (isBengali) capsState = 0
         langButton.text = if (isBengali) "🌐 BN" else "🌐 EN"
+        updateKeyLabels(keyboardView as ViewGroup)
         Toast.makeText(this, if (isBengali) "বাংলা মোড সক্রিয়" else "English Mode Active", Toast.LENGTH_SHORT).show()
     }
 
@@ -163,10 +181,22 @@ class KhiproIME : InputMethodService() {
             val child = viewGroup.getChildAt(i)
             if (child is ViewGroup) {
                 updateKeyLabels(child)
-            } else if (child is Button && child.tag == "key") {
-                val original = originalKeys[child] ?: child.text.toString().lowercase()
-                val newText = if (isSymbols) symbolMap[original] ?: original else original
-                child.text = if (isCaps && !isSymbols) newText.uppercase() else newText
+            } else if (child is Button) {
+                if (child.tag == "key") {
+                    val original = originalKeys[child] ?: child.text.toString().lowercase()
+                    val newText = if (isSymbols) symbolMap[original] ?: original else original
+                    child.text = if (capsState > 0 && !isSymbols) newText.uppercase() else newText
+                } else if (child.id == R.id.btn_shift) {
+                    if (isBengali && !isSymbols) {
+                        child.text = "/"
+                    } else {
+                        child.text = when (capsState) {
+                            2 -> "CAPS"
+                            1 -> "⇧"
+                            else -> "⇧"
+                        }
+                    }
+                }
             }
         }
     }

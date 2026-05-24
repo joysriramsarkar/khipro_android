@@ -3,7 +3,7 @@ package com.team.khipro
 object KhiproData {
     val SHOR = mapOf(
         "o" to "অ", "a" to "আ", "i" to "ই", "ii" to "ঈ", "u" to "উ", "uu" to "ঊ", "q" to "ঋ", "e" to "এ", "oi" to "ঐ", "w" to "ও", "ou" to "ঔ", "ae" to "অ্যা",
-        "wa" to "ওয়া", "wae" to "ওয়্যা", "we" to "ওয়ে", "ooo" to "অং", "oof" to "ঽ"
+        "wa" to "ওয়া", "wae" to "ওয়্যা", "we" to "ওয়ে", "ooo" to "অং", "oof" to "ঽ",
     )
 
     val FKAR = mapOf(
@@ -113,7 +113,7 @@ object KhiproData {
 
     val STATE_GROUP_ORDER = mapOf(
         "init" to listOf("diacritic", "ng", "shor", "fkar", "prithayok", "ongko", "biram", "reph", "juktoborno", "byanjon"),
-        "shor-state" to listOf("diacritic", "ng", "shor", "fkar", "biram", "prithayok", "ongko", "biram", "reph", "juktoborno", "byanjon"),
+        "shor-state" to listOf("diacritic", "ng", "shor", "fkar", "biram", "prithayok", "ongko", "reph", "juktoborno", "byanjon"),
         "reph-state" to listOf("prithayok", "diacritic", "ng", "ae", "juktoborno", "byanjon", "kar"),
         "byanjon-state" to listOf("diacritic", "ng", "prithayok", "ongko", "biram", "kar", "juktoborno", "phola", "byanjon")
     )
