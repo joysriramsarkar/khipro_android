@@ -5,7 +5,6 @@ import android.view.inputmethod.InputConnection
 class BengaliEngine {
 
     private var activeRomanBuffer = ""
-    private var lastBengaliText = ""
 
     private val stateInit = "init"
     private val shorState = "shor-state"
@@ -14,44 +13,38 @@ class BengaliEngine {
 
     fun processKeystroke(char: String, ic: InputConnection?) {
         if (ic == null) return
-
         activeRomanBuffer += char.lowercase()
         val newBengali = convertBufferToBengali(activeRomanBuffer)
-
+        // setComposingText একটাই call — delete+write এর বদলে atomic replace
         ic.setComposingText(newBengali, 1)
-        lastBengaliText = newBengali
     }
 
     fun handleBackspace(ic: InputConnection?) {
         if (ic == null) return
-
         if (activeRomanBuffer.isNotEmpty()) {
-            activeRomanBuffer = activeRomanBuffer.substring(0, activeRomanBuffer.length - 1)
+            activeRomanBuffer = activeRomanBuffer.dropLast(1)
             val newBengali = convertBufferToBengali(activeRomanBuffer)
-            
+            ic.setComposingText(newBengali, 1)
             if (newBengali.isEmpty()) {
-                ic.setComposingText("", 1)
                 ic.finishComposingText()
-            } else {
-                ic.setComposingText(newBengali, 1)
             }
-            lastBengaliText = newBengali
         } else {
             ic.deleteSurroundingText(1, 0)
         }
     }
 
-    fun commitCurrentWord(ic: InputConnection?) {
+    fun commitAndReset(ic: InputConnection?) {
+        // space/enter/punctuation চাপলে এটা call হবে
         ic?.finishComposingText()
-        resetBuffer()
+        activeRomanBuffer = ""
     }
 
     fun resetBuffer() {
         activeRomanBuffer = ""
-        lastBengaliText = ""
     }
 
     private fun convertBufferToBengali(text: String): String {
+        if (text.isEmpty()) return ""
         var i = 0
         val n = text.length
         var state = stateInit
@@ -59,39 +52,32 @@ class BengaliEngine {
 
         while (i < n) {
             val (group, key, value) = findLongest(state, text, i)
-
             if (group == "") {
                 out.append(text[i])
                 i++
                 state = stateInit
                 continue
             }
-
             if (state == byanjonState && group == "phola") {
                 out.append("্")
                 out.append(value)
             } else {
                 out.append(value)
             }
-
             i += key.length
             state = applyTransition(state, group)
         }
-
         return out.toString()
     }
 
     private fun findLongest(state: String, text: String, i: Int): Triple<String, String, String> {
         val allowed = KhiproData.STATE_GROUP_ORDER[state] ?: return Triple("", "", "")
-        
         var maxLookahead = 0
         for (g in allowed) {
             val groupMax = KhiproData.MAXLEN_PER_GROUP[g] ?: 0
             if (groupMax > maxLookahead) maxLookahead = groupMax
         }
-        
         val end = minOf(text.length, i + maxLookahead)
-        
         for (length in (end - i) downTo 1) {
             val chunk = text.substring(i, i + length)
             for (g in allowed) {
@@ -119,7 +105,7 @@ class BengaliEngine {
                 else -> shorState
             }
             rephState -> when (group) {
-                "prithayok", "diacritic", "ng", "ae", "kar", "nil" -> shorState
+                "prithayok", "diacritic", "ng", "ae", "kar" -> shorState
                 "juktoborno", "byanjon" -> byanjonState
                 else -> rephState
             }

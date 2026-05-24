@@ -56,11 +56,10 @@ class KhiproIME : InputMethodService() {
     override fun onUpdateSelection(
         oldSelStart: Int, oldSelEnd: Int,
         newSelStart: Int, newSelEnd: Int,
-        candidatesStart: Int, candidatesEnd: Int
+        candidatesStart: Int, candidatesEnd: Int,
     ) {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
-        // If the user moves the cursor outside the composing region, reset the buffer.
-        if (candidatesEnd != -1 && (newSelStart != candidatesEnd || newSelEnd != candidatesEnd)) {
+        if (candidatesEnd != -1 && (newSelStart != candidatesEnd)) {
             bengaliEngine.resetBuffer()
         }
     }
@@ -85,18 +84,26 @@ class KhiproIME : InputMethodService() {
                 if (child.tag == "key") {
                     originalKeys[child] = child.text.toString().lowercase()
                     child.setOnTouchListener { v, event ->
-                        if (event.action == MotionEvent.ACTION_DOWN) {
-                            val textToCommit = child.text.toString()
-                            if (isBengali && !isSymbols) {
-                                bengaliEngine.processKeystroke(textToCommit, currentInputConnection)
-                            } else {
-                                currentInputConnection?.commitText(textToCommit, 1)
-                                if (capsState == 1) {
-                                    capsState = 0
-                                    updateKeyLabels(keyboardView as ViewGroup)
+                        when (event.action) {
+                            MotionEvent.ACTION_DOWN -> {
+                                v.animate().scaleX(0.90f).scaleY(0.90f).setDuration(60).start()
+                                v.alpha = 0.7f
+                                val textToCommit = child.text.toString()
+                                if (isBengali && !isSymbols) {
+                                    bengaliEngine.processKeystroke(textToCommit, currentInputConnection)
+                                } else {
+                                    currentInputConnection?.commitText(textToCommit, 1)
+                                    if (capsState == 1) {
+                                        capsState = 0
+                                        updateKeyLabels(keyboardView as ViewGroup)
+                                    }
                                 }
+                                v.performClick()
                             }
-                            v.performClick()
+                            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                                v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(60).start()
+                                v.alpha = 1.0f
+                            }
                         }
                         true
                     }
@@ -104,54 +111,94 @@ class KhiproIME : InputMethodService() {
                     when (child.id) {
                         R.id.btn_delete -> setupBackspace(child)
                         R.id.btn_space -> child.setOnTouchListener { v, event ->
-                            if (event.action == MotionEvent.ACTION_DOWN) {
-                                if (isBengali && !isSymbols) {
-                                    bengaliEngine.commitCurrentWord(currentInputConnection)
+                            when (event.action) {
+                                MotionEvent.ACTION_DOWN -> {
+                                    v.animate().scaleX(0.98f).scaleY(0.92f).setDuration(60).start()
+                                    v.alpha = 0.7f
+                                    if (isBengali && !isSymbols) {
+                                        bengaliEngine.commitAndReset(currentInputConnection)
+                                    }
+                                    currentInputConnection?.commitText(" ", 1)
+                                    v.performClick()
                                 }
-                                currentInputConnection?.commitText(" ", 1)
-                                v.performClick()
+                                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(60).start()
+                                    v.alpha = 1.0f
+                                }
                             }
                             true
                         }
                         R.id.btn_enter -> child.setOnTouchListener { v, event ->
-                            if (event.action == MotionEvent.ACTION_DOWN) {
-                                if (isBengali && !isSymbols) {
-                                    bengaliEngine.commitCurrentWord(currentInputConnection)
+                            when (event.action) {
+                                MotionEvent.ACTION_DOWN -> {
+                                    v.animate().scaleX(0.90f).scaleY(0.90f).setDuration(60).start()
+                                    v.alpha = 0.8f
+                                    if (isBengali && !isSymbols) {
+                                        bengaliEngine.commitAndReset(currentInputConnection)
+                                    }
+                                    triggerKeyEvent(KeyEvent.KEYCODE_ENTER)
+                                    v.performClick()
                                 }
-                                triggerKeyEvent(KeyEvent.KEYCODE_ENTER)
-                                v.performClick()
+                                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(60).start()
+                                    v.alpha = 1.0f
+                                }
                             }
                             true
                         }
                         R.id.btn_shift -> child.setOnTouchListener { v, event ->
-                            if (event.action == MotionEvent.ACTION_DOWN) {
-                                if (isBengali && !isSymbols) {
-                                    bengaliEngine.processKeystroke("/", currentInputConnection)
-                                } else {
-                                    isSymbols = false
-                                    handleShiftClick()
+                            when (event.action) {
+                                MotionEvent.ACTION_DOWN -> {
+                                    v.animate().scaleX(0.90f).scaleY(0.90f).setDuration(60).start()
+                                    v.alpha = 0.7f
+                                    if (isBengali && !isSymbols) {
+                                        bengaliEngine.processKeystroke("/", currentInputConnection)
+                                    } else {
+                                        isSymbols = false
+                                        handleShiftClick()
+                                    }
+                                    v.performClick()
                                 }
-                                v.performClick()
+                                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(60).start()
+                                    v.alpha = 1.0f
+                                }
                             }
                             true
                         }
                         R.id.btn_lang -> child.setOnTouchListener { v, event ->
-                            if (event.action == MotionEvent.ACTION_DOWN) {
-                                if (isBengali && !isSymbols) {
-                                    bengaliEngine.commitCurrentWord(currentInputConnection)
+                            when (event.action) {
+                                MotionEvent.ACTION_DOWN -> {
+                                    v.animate().scaleX(0.90f).scaleY(0.90f).setDuration(60).start()
+                                    v.alpha = 0.7f
+                                    if (isBengali && !isSymbols) {
+                                        bengaliEngine.commitAndReset(currentInputConnection)
+                                    }
+                                    toggleLanguage(child)
+                                    v.performClick()
                                 }
-                                toggleLanguage(child)
-                                v.performClick()
+                                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(60).start()
+                                    v.alpha = 1.0f
+                                }
                             }
                             true
                         }
                         R.id.btn_sym -> child.setOnTouchListener { v, event ->
-                            if (event.action == MotionEvent.ACTION_DOWN) {
-                                if (isBengali && !isSymbols) {
-                                    bengaliEngine.commitCurrentWord(currentInputConnection)
+                            when (event.action) {
+                                MotionEvent.ACTION_DOWN -> {
+                                    v.animate().scaleX(0.90f).scaleY(0.90f).setDuration(60).start()
+                                    v.alpha = 0.7f
+                                    if (isBengali && !isSymbols) {
+                                        bengaliEngine.commitAndReset(currentInputConnection)
+                                    }
+                                    toggleSymbols(child)
+                                    v.performClick()
                                 }
-                                toggleSymbols(child)
-                                v.performClick()
+                                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(60).start()
+                                    v.alpha = 1.0f
+                                }
                             }
                             true
                         }
@@ -166,6 +213,8 @@ class KhiproIME : InputMethodService() {
         button.setOnTouchListener { v, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    v.animate().scaleX(0.90f).scaleY(0.90f).setDuration(60).start()
+                    v.alpha = 0.7f
                     if (isBengali && !isSymbols) {
                         bengaliEngine.handleBackspace(currentInputConnection)
                     } else {
@@ -174,6 +223,8 @@ class KhiproIME : InputMethodService() {
                     handler.postDelayed(backspaceRunnable, 400)
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(60).start()
+                    v.alpha = 1.0f
                     handler.removeCallbacks(backspaceRunnable)
                     if (event.action == MotionEvent.ACTION_UP) {
                         v.performClick()
@@ -217,7 +268,24 @@ class KhiproIME : InputMethodService() {
             } else if (child is Button) {
                 if (child.tag == "key") {
                     val original = originalKeys[child] ?: child.text.toString().lowercase()
-                    val newText = if (isSymbols) symbolMap[original] ?: original else original
+                    var newText = if (isSymbols) symbolMap[original] ?: original else original
+
+                    if (isBengali && isSymbols) {
+                        newText = when (newText) {
+                            "1" -> "১"
+                            "2" -> "২"
+                            "3" -> "৩"
+                            "4" -> "৪"
+                            "5" -> "৫"
+                            "6" -> "৬"
+                            "7" -> "৭"
+                            "8" -> "৮"
+                            "9" -> "৯"
+                            "0" -> "০"
+                            else -> KhiproData.BIRAM[newText] ?: newText
+                        }
+                    }
+
                     child.text = if (capsState > 0 && !isSymbols) newText.uppercase() else newText
                 } else if (child.id == R.id.btn_shift) {
                     if (isBengali && !isSymbols) {
@@ -229,6 +297,10 @@ class KhiproIME : InputMethodService() {
                             else -> "⇧"
                         }
                     }
+                } else if (child.id == R.id.btn_sym) {
+                    child.text = if (isSymbols) "ABC" else "123"
+                } else if (child.id == R.id.btn_lang) {
+                    child.text = if (isBengali) "🌐 BN" else "🌐 EN"
                 }
             }
         }

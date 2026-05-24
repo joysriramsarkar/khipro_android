@@ -10,7 +10,7 @@ object KhiproData {
         "fuf" to "‌ু", "fuuf" to "‌ূ", "fqf" to "‌ৃ",
         "fa" to "া", "fi" to "ি", "fii" to "ী", "fu" to "ু", "fuu" to "ূ",
         "fq" to "ৃ", "fe" to "ে", "foi" to "ৈ", "fw" to "ো", "fou" to "ৌ",
-        "fae" to "্যা", "fwa" to "োয়া", "fwe" to "োয়ে", "oo" to "ং"
+        "fae" to "্যা", "fwa" to "োয়া", "fwe" to "োয়ে", "oo" to "ং",
     )
 
     val BYANJON = mapOf(
