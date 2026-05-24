@@ -53,6 +53,28 @@ class KhiproIME : InputMethodService() {
         return keyboardView
     }
 
+    override fun onUpdateSelection(
+        oldSelStart: Int, oldSelEnd: Int,
+        newSelStart: Int, newSelEnd: Int,
+        candidatesStart: Int, candidatesEnd: Int
+    ) {
+        super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+        // If the user moves the cursor outside the composing region, reset the buffer.
+        if (candidatesEnd != -1 && (newSelStart != candidatesEnd || newSelEnd != candidatesEnd)) {
+            bengaliEngine.resetBuffer()
+        }
+    }
+
+    override fun onStartInput(attribute: android.view.inputmethod.EditorInfo?, restarting: Boolean) {
+        super.onStartInput(attribute, restarting)
+        if (!restarting) bengaliEngine.resetBuffer()
+    }
+
+    override fun onFinishInputView(finishingInput: Boolean) {
+        super.onFinishInputView(finishingInput)
+        bengaliEngine.resetBuffer()
+    }
+
     @android.annotation.SuppressLint("ClickableViewAccessibility")
     private fun setupKeyListeners(viewGroup: ViewGroup) {
         for (i in 0 until viewGroup.childCount) {
@@ -83,7 +105,9 @@ class KhiproIME : InputMethodService() {
                         R.id.btn_delete -> setupBackspace(child)
                         R.id.btn_space -> child.setOnTouchListener { v, event ->
                             if (event.action == MotionEvent.ACTION_DOWN) {
-                                if (isBengali) bengaliEngine.resetBuffer()
+                                if (isBengali && !isSymbols) {
+                                    bengaliEngine.commitCurrentWord(currentInputConnection)
+                                }
                                 currentInputConnection?.commitText(" ", 1)
                                 v.performClick()
                             }
@@ -91,6 +115,9 @@ class KhiproIME : InputMethodService() {
                         }
                         R.id.btn_enter -> child.setOnTouchListener { v, event ->
                             if (event.action == MotionEvent.ACTION_DOWN) {
+                                if (isBengali && !isSymbols) {
+                                    bengaliEngine.commitCurrentWord(currentInputConnection)
+                                }
                                 triggerKeyEvent(KeyEvent.KEYCODE_ENTER)
                                 v.performClick()
                             }
@@ -110,6 +137,9 @@ class KhiproIME : InputMethodService() {
                         }
                         R.id.btn_lang -> child.setOnTouchListener { v, event ->
                             if (event.action == MotionEvent.ACTION_DOWN) {
+                                if (isBengali && !isSymbols) {
+                                    bengaliEngine.commitCurrentWord(currentInputConnection)
+                                }
                                 toggleLanguage(child)
                                 v.performClick()
                             }
@@ -117,6 +147,9 @@ class KhiproIME : InputMethodService() {
                         }
                         R.id.btn_sym -> child.setOnTouchListener { v, event ->
                             if (event.action == MotionEvent.ACTION_DOWN) {
+                                if (isBengali && !isSymbols) {
+                                    bengaliEngine.commitCurrentWord(currentInputConnection)
+                                }
                                 toggleSymbols(child)
                                 v.performClick()
                             }

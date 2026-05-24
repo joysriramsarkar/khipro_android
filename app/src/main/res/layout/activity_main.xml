@@ -22,14 +22,14 @@
 
     <Button
         android:id="@+id/btn_enable"
-        android:layout_width="fill_parent"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="30dp"
         android:text="@string/btn_enable_text" />
 
     <Button
         android:id="@+id/btn_select"
-        android:layout_width="fill_parent"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
         android:text="@string/btn_select_text" />

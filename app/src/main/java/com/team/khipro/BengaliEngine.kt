@@ -5,7 +5,6 @@ import android.view.inputmethod.InputConnection
 class BengaliEngine {
 
     private var activeRomanBuffer = ""
-    private var lastBengaliLength = 0
     private var lastBengaliText = ""
 
     private val stateInit = "init"
@@ -13,56 +12,42 @@ class BengaliEngine {
     private val rephState = "reph-state"
     private val byanjonState = "byanjon-state"
 
-    private fun checkCursorState(ic: InputConnection?) {
-        if (ic == null || lastBengaliLength == 0) return
-        val textBeforeCursor = ic.getTextBeforeCursor(lastBengaliLength, 0)
-        if (textBeforeCursor == null || textBeforeCursor.toString() != lastBengaliText) {
-            resetBuffer()
-        }
-    }
-
     fun processKeystroke(char: String, ic: InputConnection?) {
         if (ic == null) return
-
-        checkCursorState(ic)
 
         activeRomanBuffer += char.lowercase()
         val newBengali = convertBufferToBengali(activeRomanBuffer)
 
-        if (lastBengaliLength > 0) {
-            ic.deleteSurroundingText(lastBengaliLength, 0)
-        }
-        ic.commitText(newBengali, 1)
-        lastBengaliLength = newBengali.length
+        ic.setComposingText(newBengali, 1)
         lastBengaliText = newBengali
     }
 
     fun handleBackspace(ic: InputConnection?) {
         if (ic == null) return
-        
-        checkCursorState(ic)
 
         if (activeRomanBuffer.isNotEmpty()) {
             activeRomanBuffer = activeRomanBuffer.substring(0, activeRomanBuffer.length - 1)
             val newBengali = convertBufferToBengali(activeRomanBuffer)
             
-            if (lastBengaliLength > 0) {
-                ic.deleteSurroundingText(lastBengaliLength, 0)
+            if (newBengali.isEmpty()) {
+                ic.setComposingText("", 1)
+                ic.finishComposingText()
+            } else {
+                ic.setComposingText(newBengali, 1)
             }
-            
-            if (newBengali.isNotEmpty()) {
-                ic.commitText(newBengali, 1)
-            }
-            lastBengaliLength = newBengali.length
             lastBengaliText = newBengali
         } else {
             ic.deleteSurroundingText(1, 0)
         }
     }
 
+    fun commitCurrentWord(ic: InputConnection?) {
+        ic?.finishComposingText()
+        resetBuffer()
+    }
+
     fun resetBuffer() {
         activeRomanBuffer = ""
-        lastBengaliLength = 0
         lastBengaliText = ""
     }
 

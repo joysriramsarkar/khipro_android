@@ -16,6 +16,6 @@
 # debugging stack traces.
 #-keepattributes SourceFile,LineNumberTable
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Khipro IME rules
+-keep class com.team.khipro.KhiproIME { *; }
+-keep class com.team.khipro.BengaliEngine { *; }
