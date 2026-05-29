@@ -43,6 +43,8 @@ class BengaliEngine {
         activeRomanBuffer = ""
     }
 
+    fun isBufferEmpty(): Boolean = activeRomanBuffer.isEmpty()
+
     private fun convertBufferToBengali(text: String): String {
         if (text.isEmpty()) return ""
         var i = 0
@@ -58,7 +60,7 @@ class BengaliEngine {
                 state = stateInit
                 continue
             }
-            if (state == byanjonState && group == "phola") {
+            if ((state == byanjonState) && (group == "phola")) {
                 out.append("্")
                 out.append(value)
             } else {
@@ -82,7 +84,7 @@ class BengaliEngine {
             val chunk = text.substring(i, i + length)
             for (g in allowed) {
                 val map = KhiproData.GROUP_MAPS[g]
-                if (map != null && map.containsKey(chunk)) {
+                if ((map != null) && map.containsKey(chunk)) {
                     return Triple(g, chunk, map[chunk]!!)
                 }
             }

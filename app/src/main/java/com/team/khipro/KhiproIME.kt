@@ -3,12 +3,18 @@ package com.team.khipro
 import android.inputmethodservice.InputMethodService
 import android.os.Handler
 import android.os.Looper
+import android.view.HapticFeedbackConstants
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
+import android.view.animation.AccelerateInterpolator
+import android.view.animation.OvershootInterpolator
+import android.view.inputmethod.EditorInfo
+import android.widget.TextView
 import android.widget.Toast
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 
 class KhiproIME : InputMethodService() {
 
@@ -16,11 +22,12 @@ class KhiproIME : InputMethodService() {
     private var lastShiftClickTime: Long = 0
     private var isBengali = false
     private var isSymbols = false
+    private var isExtraSymbols = false
     private lateinit var keyboardView: View
     private val bengaliEngine = BengaliEngine()
 
     // প্রতিটি বাটনের অরিজিনাল লেটার মনে রাখার জন্য
-    private val originalKeys = mutableMapOf<Button, String>()
+    private val originalKeys = mutableMapOf<TextView, String>()
 
     private val symbolMap = mapOf(
         "q" to "1", "w" to "2", "e" to "3", "r" to "4", "t" to "5",
@@ -29,6 +36,15 @@ class KhiproIME : InputMethodService() {
         "h" to "-", "j" to "+", "k" to "(", "l" to ")",
         "z" to "*", "x" to "\"", "c" to "'", "v" to ":", "b" to ";",
         "n" to "!", "m" to "?",
+    )
+
+    private val symbolMap2 = mapOf(
+        "q" to "[", "w" to "]", "e" to "{", "r" to "}", "t" to "#",
+        "y" to "%", "u" to "^", "i" to "*", "o" to "+", "p" to "=",
+        "a" to "_", "s" to "\\", "d" to "|", "f" to "~", "g" to "<",
+        "h" to ">", "j" to "$", "k" to "£", "l" to "¥",
+        "z" to "•", "x" to "°", "c" to "μ", "v" to "π", "b" to "÷",
+        "n" to "×", "m" to "¶",
     )
 
     // ব্যাকস্পেস রিপিট লজিক
@@ -48,6 +64,15 @@ class KhiproIME : InputMethodService() {
     override fun onCreateInputView(): View {
         originalKeys.clear()
         keyboardView = layoutInflater.inflate(R.layout.keyboard_layout, null)
+        
+        // Window Insets handle
+        val initialPaddingBottom = keyboardView.paddingBottom
+        ViewCompat.setOnApplyWindowInsetsListener(keyboardView) { v, insets ->
+            val navBar = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            v.setPadding(0, v.paddingTop, 0, navBar.bottom + initialPaddingBottom)
+            insets
+        }
+
         setupKeyListeners(keyboardView as ViewGroup)
         updateKeyLabels(keyboardView as ViewGroup)
         return keyboardView
@@ -59,19 +84,54 @@ class KhiproIME : InputMethodService() {
         candidatesStart: Int, candidatesEnd: Int,
     ) {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
-        if (candidatesEnd != -1 && (newSelStart != candidatesEnd)) {
+        
+        // যদি ইউজার ম্যানুয়ালি কার্সর সরায় (কম্পোজিং এরিয়ার বাইরে), তবে বাফার রিসেট করতে হবে।
+        // candidatesEnd -1 হলে বুঝতে হবে এখন কোনো কম্পোজিং এরিয়া নেই।
+        if (!bengaliEngine.isBufferEmpty() && 
+            (newSelStart != candidatesEnd || newSelEnd != candidatesEnd)) {
             bengaliEngine.resetBuffer()
+            currentInputConnection?.finishComposingText()
         }
     }
 
-    override fun onStartInput(attribute: android.view.inputmethod.EditorInfo?, restarting: Boolean) {
+    override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
-        if (!restarting) bengaliEngine.resetBuffer()
+        // নতুন ইনপুট সেশন শুরু হলে বাফার এবং কিবোর্ড স্টেট রিসেট করা নিরাপদ।
+        bengaliEngine.resetBuffer()
+        if (!restarting) {
+            isSymbols = false
+            isExtraSymbols = false
+            if (isBengali) capsState = 0
+            if (::keyboardView.isInitialized) {
+                updateKeyLabels(keyboardView as ViewGroup)
+            }
+        }
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
         super.onFinishInputView(finishingInput)
-        bengaliEngine.resetBuffer()
+        if (!bengaliEngine.isBufferEmpty()) {
+            bengaliEngine.commitAndReset(currentInputConnection)
+        }
+    }
+
+    private fun applyPressAnimation(v: View) {
+        v.animate()
+            .scaleX(0.92f).scaleY(0.92f)
+            .alpha(0.75f)
+            .setDuration(40)
+            .setInterpolator(AccelerateInterpolator())
+            .start()
+        v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+    }
+
+    private fun applyReleaseAnimation(v: View) {
+        v.animate()
+            .scaleX(1.0f).scaleY(1.0f)
+            .alpha(1.0f)
+            .setDuration(100)
+            .setInterpolator(OvershootInterpolator(1.2f))
+            .start()
     }
 
     @android.annotation.SuppressLint("ClickableViewAccessibility")
@@ -80,14 +140,13 @@ class KhiproIME : InputMethodService() {
             val child = viewGroup.getChildAt(i)
             if (child is ViewGroup) {
                 setupKeyListeners(child)
-            } else if (child is Button) {
+            } else if (child is TextView) {
                 if (child.tag == "key") {
                     originalKeys[child] = child.text.toString().lowercase()
                     child.setOnTouchListener { v, event ->
                         when (event.action) {
                             MotionEvent.ACTION_DOWN -> {
-                                v.animate().scaleX(0.90f).scaleY(0.90f).setDuration(60).start()
-                                v.alpha = 0.7f
+                                applyPressAnimation(v)
                                 val textToCommit = child.text.toString()
                                 if (isBengali && !isSymbols) {
                                     bengaliEngine.processKeystroke(textToCommit, currentInputConnection)
@@ -101,8 +160,7 @@ class KhiproIME : InputMethodService() {
                                 v.performClick()
                             }
                             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                                v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(60).start()
-                                v.alpha = 1.0f
+                                applyReleaseAnimation(v)
                             }
                         }
                         true
@@ -113,8 +171,7 @@ class KhiproIME : InputMethodService() {
                         R.id.btn_space -> child.setOnTouchListener { v, event ->
                             when (event.action) {
                                 MotionEvent.ACTION_DOWN -> {
-                                    v.animate().scaleX(0.98f).scaleY(0.92f).setDuration(60).start()
-                                    v.alpha = 0.7f
+                                    applyPressAnimation(v)
                                     if (isBengali && !isSymbols) {
                                         bengaliEngine.commitAndReset(currentInputConnection)
                                     }
@@ -122,8 +179,7 @@ class KhiproIME : InputMethodService() {
                                     v.performClick()
                                 }
                                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(60).start()
-                                    v.alpha = 1.0f
+                                    applyReleaseAnimation(v)
                                 }
                             }
                             true
@@ -131,17 +187,21 @@ class KhiproIME : InputMethodService() {
                         R.id.btn_enter -> child.setOnTouchListener { v, event ->
                             when (event.action) {
                                 MotionEvent.ACTION_DOWN -> {
-                                    v.animate().scaleX(0.90f).scaleY(0.90f).setDuration(60).start()
-                                    v.alpha = 0.8f
+                                    applyPressAnimation(v)
                                     if (isBengali && !isSymbols) {
                                         bengaliEngine.commitAndReset(currentInputConnection)
                                     }
-                                    triggerKeyEvent(KeyEvent.KEYCODE_ENTER)
+                                    
+                                    val action = currentInputEditorInfo?.actionId ?: EditorInfo.IME_ACTION_NONE
+                                    if (action != EditorInfo.IME_ACTION_NONE && action != EditorInfo.IME_ACTION_UNSPECIFIED) {
+                                        currentInputConnection?.performEditorAction(action)
+                                    } else {
+                                        triggerKeyEvent(KeyEvent.KEYCODE_ENTER)
+                                    }
                                     v.performClick()
                                 }
                                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(60).start()
-                                    v.alpha = 1.0f
+                                    applyReleaseAnimation(v)
                                 }
                             }
                             true
@@ -149,19 +209,19 @@ class KhiproIME : InputMethodService() {
                         R.id.btn_shift -> child.setOnTouchListener { v, event ->
                             when (event.action) {
                                 MotionEvent.ACTION_DOWN -> {
-                                    v.animate().scaleX(0.90f).scaleY(0.90f).setDuration(60).start()
-                                    v.alpha = 0.7f
+                                    applyPressAnimation(v)
                                     if (isBengali && !isSymbols) {
                                         bengaliEngine.processKeystroke("/", currentInputConnection)
+                                    } else if (isSymbols) {
+                                        isExtraSymbols = !isExtraSymbols
+                                        updateKeyLabels(keyboardView as ViewGroup)
                                     } else {
-                                        isSymbols = false
                                         handleShiftClick()
                                     }
                                     v.performClick()
                                 }
                                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(60).start()
-                                    v.alpha = 1.0f
+                                    applyReleaseAnimation(v)
                                 }
                             }
                             true
@@ -169,17 +229,15 @@ class KhiproIME : InputMethodService() {
                         R.id.btn_lang -> child.setOnTouchListener { v, event ->
                             when (event.action) {
                                 MotionEvent.ACTION_DOWN -> {
-                                    v.animate().scaleX(0.90f).scaleY(0.90f).setDuration(60).start()
-                                    v.alpha = 0.7f
+                                    applyPressAnimation(v)
                                     if (isBengali && !isSymbols) {
                                         bengaliEngine.commitAndReset(currentInputConnection)
                                     }
-                                    toggleLanguage(child)
+                                    toggleLanguage()
                                     v.performClick()
                                 }
                                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(60).start()
-                                    v.alpha = 1.0f
+                                    applyReleaseAnimation(v)
                                 }
                             }
                             true
@@ -187,17 +245,15 @@ class KhiproIME : InputMethodService() {
                         R.id.btn_sym -> child.setOnTouchListener { v, event ->
                             when (event.action) {
                                 MotionEvent.ACTION_DOWN -> {
-                                    v.animate().scaleX(0.90f).scaleY(0.90f).setDuration(60).start()
-                                    v.alpha = 0.7f
+                                    applyPressAnimation(v)
                                     if (isBengali && !isSymbols) {
                                         bengaliEngine.commitAndReset(currentInputConnection)
                                     }
-                                    toggleSymbols(child)
+                                    toggleSymbols()
                                     v.performClick()
                                 }
                                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(60).start()
-                                    v.alpha = 1.0f
+                                    applyReleaseAnimation(v)
                                 }
                             }
                             true
@@ -209,12 +265,11 @@ class KhiproIME : InputMethodService() {
     }
 
     @android.annotation.SuppressLint("ClickableViewAccessibility")
-    private fun setupBackspace(button: Button) {
-        button.setOnTouchListener { v, event ->
+    private fun setupBackspace(textView: TextView) {
+        textView.setOnTouchListener { v, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
-                    v.animate().scaleX(0.90f).scaleY(0.90f).setDuration(60).start()
-                    v.alpha = 0.7f
+                    applyPressAnimation(v)
                     if (isBengali && !isSymbols) {
                         bengaliEngine.handleBackspace(currentInputConnection)
                     } else {
@@ -223,8 +278,7 @@ class KhiproIME : InputMethodService() {
                     handler.postDelayed(backspaceRunnable, 400)
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(60).start()
-                    v.alpha = 1.0f
+                    applyReleaseAnimation(v)
                     handler.removeCallbacks(backspaceRunnable)
                     if (event.action == MotionEvent.ACTION_UP) {
                         v.performClick()
@@ -246,16 +300,15 @@ class KhiproIME : InputMethodService() {
         updateKeyLabels(keyboardView as ViewGroup)
     }
 
-    private fun toggleSymbols(symButton: Button) {
+    private fun toggleSymbols() {
         isSymbols = !isSymbols
-        symButton.text = if (isSymbols) "ABC" else "123"
+        if (!isSymbols) isExtraSymbols = false
         updateKeyLabels(keyboardView as ViewGroup)
     }
 
-    private fun toggleLanguage(langButton: Button) {
+    private fun toggleLanguage() {
         isBengali = !isBengali
         if (isBengali) capsState = 0
-        langButton.text = if (isBengali) "🌐 BN" else "🌐 EN"
         updateKeyLabels(keyboardView as ViewGroup)
         Toast.makeText(this, if (isBengali) "বাংলা মোড সক্রিয়" else "English Mode Active", Toast.LENGTH_SHORT).show()
     }
@@ -265,42 +318,52 @@ class KhiproIME : InputMethodService() {
             val child = viewGroup.getChildAt(i)
             if (child is ViewGroup) {
                 updateKeyLabels(child)
-            } else if (child is Button) {
-                if (child.tag == "key") {
-                    val original = originalKeys[child] ?: child.text.toString().lowercase()
-                    var newText = if (isSymbols) symbolMap[original] ?: original else original
+            } else if (child is TextView) {
+                when {
+                    child.tag == "key" -> {
+                        val original = originalKeys[child] ?: child.text.toString().lowercase()
+                        val currentMap = if (isExtraSymbols) symbolMap2 else symbolMap
+                        var newText = if (isSymbols) currentMap[original] ?: original else original
 
-                    if (isBengali && isSymbols) {
-                        newText = when (newText) {
-                            "1" -> "১"
-                            "2" -> "২"
-                            "3" -> "৩"
-                            "4" -> "৪"
-                            "5" -> "৫"
-                            "6" -> "৬"
-                            "7" -> "৭"
-                            "8" -> "৮"
-                            "9" -> "৯"
-                            "0" -> "০"
-                            else -> KhiproData.BIRAM[newText] ?: newText
+                        if (isBengali && isSymbols) {
+                            newText = KhiproData.ONGKO[newText] ?: KhiproData.BIRAM[newText] ?: newText
+                        }
+
+                        child.text = if (capsState > 0 && !isSymbols) newText.uppercase() else newText
+                    }
+                    child.id == R.id.btn_shift -> {
+                        if (isBengali && !isSymbols) {
+                            child.text = "/"
+                        } else if (isSymbols) {
+                            child.text = if (isExtraSymbols) "2/2" else "1/2"
+                        } else {
+                            child.text = when (capsState) {
+                                2 -> "CAPS"
+                                1 -> "⬆"
+                                else -> "⇧"
+                            }
                         }
                     }
-
-                    child.text = if (capsState > 0 && !isSymbols) newText.uppercase() else newText
-                } else if (child.id == R.id.btn_shift) {
-                    if (isBengali && !isSymbols) {
-                        child.text = "/"
-                    } else {
-                        child.text = when (capsState) {
-                            2 -> "CAPS"
-                            1 -> "⇧"
-                            else -> "⇧"
+                    child.id == R.id.btn_sym -> {
+                        child.text = if (isSymbols) "ABC" else "?123"
+                    }
+                    child.id == R.id.btn_lang -> {
+                        child.text = if (isBengali) "🌐 BN" else "🌐 EN"
+                    }
+                    child.id == R.id.btn_space -> {
+                        child.text = if (isBengali) "বাংলা" else "English"
+                    }
+                    child.id == R.id.btn_enter -> {
+                        val action = currentInputEditorInfo?.actionId ?: EditorInfo.IME_ACTION_NONE
+                        child.text = when (action) {
+                            EditorInfo.IME_ACTION_GO -> "GO"
+                            EditorInfo.IME_ACTION_NEXT -> "NEXT"
+                            EditorInfo.IME_ACTION_SEARCH -> "SEARCH"
+                            EditorInfo.IME_ACTION_SEND -> "SEND"
+                            EditorInfo.IME_ACTION_DONE -> "DONE"
+                            else -> "↵"
                         }
                     }
-                } else if (child.id == R.id.btn_sym) {
-                    child.text = if (isSymbols) "ABC" else "123"
-                } else if (child.id == R.id.btn_lang) {
-                    child.text = if (isBengali) "🌐 BN" else "🌐 EN"
                 }
             }
         }

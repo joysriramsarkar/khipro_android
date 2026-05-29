@@ -1,18 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ripple xmlns:android="http://schemas.android.com/apk/res/android"
-    android:color="#4D000000">
+    android:color="@color/key_ripple"
+    android:radius="6dp">
     <item>
         <layer-list>
-            <item android:top="1dp" android:left="0.2dp" android:right="0.2dp">
+            <!-- Bottom shadow -->
+            <item
+                android:left="0.5dp"
+                android:right="0.5dp"
+                android:top="1dp">
                 <shape>
-                    <solid android:color="#9AA0A6" />
-                    <corners android:radius="7dp" />
+                    <solid android:color="@color/special_key_shadow" />
+                    <corners android:radius="8dp" />
                 </shape>
             </item>
+            <!-- Main surface -->
             <item android:bottom="1.5dp">
                 <shape>
-                    <solid android:color="#BDC1C6" />
-                    <corners android:radius="7dp" />
+                    <solid android:color="@color/special_key_surface" />
+                    <corners android:radius="8dp" />
                 </shape>
             </item>
         </layer-list>

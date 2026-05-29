@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="kb_background">@color/kb_background_dark</color>
+    <color name="key_surface">@color/key_surface_dark</color>
+    <color name="key_shadow">@color/key_shadow_dark</color>
+    <color name="key_text">@color/key_text_dark</color>
+    <color name="special_key_surface">@color/special_key_surface_dark</color>
+    <color name="special_key_shadow">@color/special_key_shadow_dark</color>
+</resources>

@@ -9,6 +9,7 @@ An extremely fast and lightweight Bengali keyboard for Android. It supports phon
 *   **Conjunct Support:** Powerful engine to help type complex Bengali conjuncts (juktobornos) easily.
 *   **Symbol Layout:** All necessary signs and numbers in one place.
 *   **Fast Backspace:** Advanced backspace logic to improve typing speed.
+*   **Smart Buffer Management:** Automatic buffer cleaning when input focus changes or apps switch.
 
 ## Setup Guide
 
